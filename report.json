@@ -1,0 +1,13 @@
+[
+    {
+        "target": "127.0.0.1",
+        "port": 8081,
+        "service": "blackice-icecap",
+        "server": "SimpleHTTP/0.6 Python/3.13.12",
+        "risk": "UNKNOWN",
+        "reason": "No rule available",
+        "product": "python simplehttpserver",
+        "version": "0.6",
+        "confidence": 1.0
+    }
+]
