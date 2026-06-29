@@ -1,4 +1,4 @@
-def calculate_risk(cve, service="unknown"):
+def calculate_single_cve_risk(cve, service="unknown"):
     """
     CVE + enriched context → advanced risk scoring engine
     Output: risk_score (0-100), severity, confidence, explanation
@@ -156,5 +156,70 @@ def calculate_risk(cve, service="unknown"):
         "severity": severity,
         "confidence": confidence,
         "service": service,
+        "explanation": explanation
+    }
+
+def calculate_risk(cves, service="unknown"):
+    """
+    Risk Engine v2.1
+
+    Input:
+        cves -> list
+
+    Output:
+        Single summarized risk assessment
+    """
+
+    if not cves:
+        return {
+            "risk_score": 0,
+            "severity": "INFO",
+            "confidence": 0,
+            "service": service,
+            "highest_cvss": 0,
+            "cve_count": 0,
+            "critical_count": 0,
+            "explanation": "No vulnerabilities detected."
+        }
+
+    results = [
+        calculate_single_cve_risk(cve, service)
+        for cve in cves
+    ]
+
+    highest_score = max(r["risk_score"] for r in results)
+    highest_severity = max(
+        results,
+        key=lambda r: r["risk_score"]
+    )["severity"]
+
+    confidence = round(
+        sum(r["confidence"] for r in results) / len(results)
+    )
+
+    critical_count = sum(
+        1
+        for r in results
+        if r["severity"] == "CRITICAL"
+    )
+
+    explanation = (
+        f"{len(cves)} CVE(s) analyzed. "
+        f"{critical_count} critical finding(s)."
+    )
+
+    return {
+        "risk_score": highest_score,
+        "severity": highest_severity,
+        "confidence": confidence,
+        "service": service,
+        "highest_cvss": max(
+            c.get("cvss", 0)
+            if isinstance(c.get("cvss"), (int, float))
+            else c.get("cvss", {}).get("score", 0)
+            for c in cves
+        ),
+        "cve_count": len(cves),
+        "critical_count": critical_count,
         "explanation": explanation
     }

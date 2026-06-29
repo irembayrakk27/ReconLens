@@ -1,0 +1,26 @@
+# ReconLens Scan Report
+
+## Target
+- **IP Address:** 127.0.0.1
+
+## Scan Information
+- **Scan Date:** 2026-06-29 17:57:51
+- **Open Ports:** 2
+
+## Detected Services
+
+| Port | Service | Product | Version |
+|------|---------|---------|---------|
+| 8080 | http | python simplehttpserver | 0.6 |
+| 8081 | http | SimpleHTTPServer | 0.6 |
+
+## Vulnerabilities
+
+No vulnerabilities found.
+
+## Risk Assessment
+- **Score:** N/A
+- **Level:** N/A
+
+## AI Analysis
+AI analysis skipped: 'groq' dependency is not installed.

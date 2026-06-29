@@ -1,0 +1,28 @@
+{
+    "target": {
+        "ip": "127.0.0.1"
+    },
+    "scan": {
+        "date": "2026-06-29 17:57:51",
+        "open_ports": 2
+    },
+    "services": [
+        {
+            "port": 8080,
+            "service": "http",
+            "product": "python simplehttpserver",
+            "version": "0.6"
+        },
+        {
+            "port": 8081,
+            "service": "http",
+            "product": "SimpleHTTPServer",
+            "version": "0.6"
+        }
+    ],
+    "vulnerabilities": [],
+    "risk": {},
+    "ai_analysis": {
+        "summary": "AI analysis skipped: 'groq' dependency is not installed."
+    }
+}
