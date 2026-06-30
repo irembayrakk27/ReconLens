@@ -19,6 +19,9 @@ from report_engine.text_report import TextReport
 from report_engine.markdown_report import MarkdownReport
 from report_engine.html_report import HtmlReport
 
+from cve_aggregator import CVEAggregator
+
+
 
 def main(target):
 
@@ -36,6 +39,7 @@ def main(target):
     results = scan_target(target)
 
     report_data = []
+
 
     # =========================
     # PORT LOOP
@@ -86,24 +90,11 @@ def main(target):
             print("\n[+] CVE Results:")
 
             for cve in cves:
-                print(f"  - {cve.get('cve_id', 'Unknown')}")
+                print(f"  - {cve.get('cve', 'Unknown')}")
 
         else:
             cves = []
 
-        # =========================
-        # RISK ENGINE
-        # =========================
-        if cves:
-            risk = calculate_risk(cves, server)
-        else:
-            risk = {
-                "risk_score": 0,
-                "severity": "INFO",
-                "confidence": 0,
-                "service": server,
-                "explanation": "No CVEs found"
-            }
 
         # =========================
         # STORE REPORT DATA
@@ -116,10 +107,14 @@ def main(target):
             "product": product,
             "version": version,
             "confidence": mapped.get("confidence", 0),
-            "cves": cves,
-            "risk": risk["severity"],
-            "reason": risk["explanation"],
+            "cves": cves
         })
+    
+    aggregator = CVEAggregator()
+
+    unique_cves = aggregator.aggregate(report_data)
+
+    global_risk = calculate_risk(unique_cves, service="GLOBAL")
 
     # =========================
     # AI ANALYSIS
@@ -128,8 +123,12 @@ def main(target):
 
     if AI_AVAILABLE:
         ai_analysis = get_ai_analysis({
-            "scan": report_data
+            "scan": report_data,
+            "global_risk": global_risk,
+            "unique_cve_count": len(unique_cves)
         })
+        
+        
     else:
         ai_analysis = (
             "AI analysis skipped: 'groq' dependency is not installed."
@@ -142,7 +141,10 @@ def main(target):
 
     builder.set_target(target)
     builder.set_scan_info(len(results["ports"]))
-    builder.set_ai_analysis({"summary": ai_analysis})
+    builder.set_ai_analysis({
+        "summary": ai_analysis,
+        "global_risk": global_risk
+        })
 
     for r in report_data:
         builder.add_service({

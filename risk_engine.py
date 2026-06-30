@@ -4,7 +4,13 @@ def calculate_single_cve_risk(cve, service="unknown"):
     Output: risk_score (0-100), severity, confidence, explanation
     """
 
-    cvss = cve.get("cvss", {}).get("score", 0)
+    cvss_data = cve.get("cvss", 0)
+
+    if isinstance(cvss_data, dict):
+        cvss = cvss_data.get("score", 0)
+    else:
+        cvss = cvss_data
+
     description = cve.get("description", "").lower()
     attack = cve.get("attack", {})
     cwe_list = cve.get("cwe", [])
@@ -223,3 +229,114 @@ def calculate_risk(cves, service="unknown"):
         "critical_count": critical_count,
         "explanation": explanation
     }
+
+class RiskEngine:
+    """
+    CTI Risk Engine v2.2 (Aşama 3)
+    """
+
+    def normalize_cve(self, cve):
+        return {
+            "cve": cve.get("cve"),
+            "cvss": self._extract_cvss(cve),
+            "description": cve.get("description", "").lower(),
+            "attack": cve.get("attack", {}),
+            "cwe": cve.get("cwe", []),
+            "service": cve.get("service", "unknown")
+        }
+
+    def _extract_cvss(self, cve):
+        cvss_data = cve.get("cvss", 0)
+        if isinstance(cvss_data, dict):
+            return cvss_data.get("score", 0)
+        return cvss_data
+
+    def enrich_cve(self, cve):
+        desc = cve["description"]
+
+        return {
+            **cve,
+            "epss": self._epss_proxy(desc, cve["cvss"]),
+            "kev": self._kev_proxy(desc),
+            "exploit": self._exploit_proxy(desc)
+        }
+
+    def _epss_proxy(self, desc, cvss):
+        score = 0.1
+        if cvss >= 7:
+            score += 0.4
+        if "rce" in desc:
+            score += 0.3
+        return min(score, 1.0)
+
+    def _kev_proxy(self, desc):
+        return any(x in desc for x in ["exploited", "cisa", "in the wild"])
+
+    def _exploit_proxy(self, desc):
+        return any(x in desc for x in ["metasploit", "exploit", "poc"])
+
+    def score_cve(self, cve):
+        score = 0
+
+        score += cve["cvss"] * 5
+        score += cve.get("epss", 0) * 20
+
+        if cve.get("kev"):
+            score += 20
+
+        if cve.get("exploit"):
+            score += 10
+
+        attack = cve.get("attack", {})
+        if attack.get("vector") == "N":
+            score += 10
+
+        if attack.get("privileges_required") == "N":
+            score += 10
+
+        return min(score, 100)
+
+    def calculate_global_risk(self, cves):
+        results = []
+
+        for cve in cves:
+            n = self.normalize_cve(cve)
+            e = self.enrich_cve(n)
+            s = self.score_cve(e)
+            results.append(s)
+
+        if not results:
+            return {
+                "max_risk": 0,
+                "avg_risk": 0,
+                "critical_count": 0,
+                "level": "INFO"
+            }
+
+        max_score = max(results)
+        avg_score = sum(results) / len(results)
+
+        return {
+            "max_risk": round(max_score, 2),
+            "avg_risk": round(avg_score, 2),
+            "critical_count": len([r for r in results if r >= 85]),
+            "level": self._classify(max_score)
+        }
+
+    def _classify(self, score):
+        if score >= 85:
+            return "CRITICAL"
+        elif score >= 70:
+            return "HIGH"
+        elif score >= 40:
+            return "MEDIUM"
+        return "LOW"
+
+# =========================
+# BACKWARD COMPATIBILITY
+# =========================
+
+_global_engine = RiskEngine()
+
+def calculate_risk(cves, service="unknown"):
+    return _global_engine.calculate_global_risk(cves)
